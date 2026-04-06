@@ -81,6 +81,121 @@ def extract_trajectory_features(coords):
         features['traj_max_angle_change'] = 0
         features['traj_angle_std'] = 0
     
+    # Add kinematic features
+    kinematic_features = extract_kinematic_features(coords_array)
+    features.update(kinematic_features)
+    
+    return features
+
+
+def extract_kinematic_features(coords_array):
+    """
+    Extract physics-based kinematic features from trajectory.
+    Assumes trajectory points are time-ordered.
+    """
+    features = {}
+    
+    if len(coords_array) < 2:
+        # Not enough points for kinematic analysis
+        return {
+            'velocity_mean': 0, 'velocity_max': 0, 'velocity_std': 0,
+            'horizontal_velocity_mean': 0, 'vertical_velocity_mean': 0,
+            'acceleration_mean': 0, 'acceleration_max': 0, 'acceleration_std': 0,
+            'acceleration_variance': 0, 'is_flapping': 0, 'is_gliding': 0,
+            'climb_rate_mean': 0, 'climb_rate_max': 0, 'descent_rate_max': 0,
+            'turn_radius_mean': 0, 'path_curvature': 0, 'tortuosity': 0
+        }
+    
+    # Calculate 3D velocities (assuming uniform time steps)
+    displacements = np.diff(coords_array, axis=0)
+    
+    # 3D velocity magnitude
+    velocities_3d = np.sqrt(np.sum(displacements**2, axis=1))
+    features['velocity_mean'] = np.mean(velocities_3d)
+    features['velocity_max'] = np.max(velocities_3d)
+    features['velocity_std'] = np.std(velocities_3d)
+    
+    # Horizontal velocity (X-Y plane)
+    if coords_array.shape[1] >= 2:
+        horizontal_velocities = np.sqrt(displacements[:, 0]**2 + displacements[:, 1]**2)
+        features['horizontal_velocity_mean'] = np.mean(horizontal_velocities)
+    else:
+        features['horizontal_velocity_mean'] = 0
+    
+    # Vertical velocity (Z-axis - climb/descent rate)
+    if coords_array.shape[1] > 2:
+        vertical_velocities = displacements[:, 2]
+        features['vertical_velocity_mean'] = np.mean(vertical_velocities)
+        features['climb_rate_mean'] = np.mean(vertical_velocities[vertical_velocities > 0]) if np.any(vertical_velocities > 0) else 0
+        features['climb_rate_max'] = np.max(vertical_velocities) if len(vertical_velocities) > 0 else 0
+        features['descent_rate_max'] = np.abs(np.min(vertical_velocities)) if len(vertical_velocities) > 0 else 0
+    else:
+        features['vertical_velocity_mean'] = 0
+        features['climb_rate_mean'] = 0
+        features['climb_rate_max'] = 0
+        features['descent_rate_max'] = 0
+    
+    # Acceleration features (change in velocity)
+    if len(velocities_3d) > 1:
+        accelerations = np.diff(velocities_3d)
+        features['acceleration_mean'] = np.mean(np.abs(accelerations))
+        features['acceleration_max'] = np.max(np.abs(accelerations))
+        features['acceleration_std'] = np.std(accelerations)
+        features['acceleration_variance'] = np.var(accelerations)
+        
+        # Flight pattern detection
+        # High acceleration variance = flapping (e.g., Songbirds)
+        # Low acceleration variance = gliding (e.g., Birds of Prey)
+        acc_var_threshold = 0.1
+        features['is_flapping'] = 1 if features['acceleration_variance'] > acc_var_threshold else 0
+        features['is_gliding'] = 1 if features['acceleration_variance'] <= acc_var_threshold else 0
+    else:
+        features['acceleration_mean'] = 0
+        features['acceleration_max'] = 0
+        features['acceleration_std'] = 0
+        features['acceleration_variance'] = 0
+        features['is_flapping'] = 0
+        features['is_gliding'] = 0
+    
+    # Turn radius and curvature (requires at least 3 points)
+    if len(coords_array) >= 3:
+        turn_radii = []
+        for i in range(len(coords_array) - 2):
+            p1, p2, p3 = coords_array[i:i+3, :2]  # Use X-Y coordinates only
+            
+            # Calculate turn radius using three points
+            # Using circumradius formula
+            a = np.linalg.norm(p2 - p1)
+            b = np.linalg.norm(p3 - p2)
+            c = np.linalg.norm(p3 - p1)
+            
+            # Semi-perimeter
+            s = (a + b + c) / 2
+            
+            # Area using Heron's formula
+            area_sq = s * (s - a) * (s - b) * (s - c)
+            
+            if area_sq > 1e-10:  # Avoid division by zero
+                area = np.sqrt(area_sq)
+                radius = (a * b * c) / (4 * area + 1e-10)
+                turn_radii.append(radius)
+        
+        if turn_radii:
+            features['turn_radius_mean'] = np.mean(turn_radii)
+            features['path_curvature'] = 1.0 / (np.mean(turn_radii) + 1e-6)  # Inverse of radius
+        else:
+            features['turn_radius_mean'] = 0
+            features['path_curvature'] = 0
+    else:
+        features['turn_radius_mean'] = 0
+        features['path_curvature'] = 0
+    
+    # Tortuosity (path complexity measure)
+    # Ratio of total path length to straight-line distance
+    total_path = np.sum(np.sqrt(np.sum(displacements[:, :2]**2, axis=1)))
+    straight_dist = np.linalg.norm(coords_array[-1, :2] - coords_array[0, :2])
+    features['tortuosity'] = total_path / (straight_dist + 1e-6)
+    
     return features
 
 

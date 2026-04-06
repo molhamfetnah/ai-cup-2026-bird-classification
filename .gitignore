@@ -28,7 +28,8 @@ results/
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb
+# Allow notebooks in notebooks/ directory
+!notebooks/*.ipynb
 
 # IDE
 .vscode/
@@ -43,3 +44,6 @@ Thumbs.db
 
 # Keep directory structure
 !.gitkeep
+
+
+.BRANDING_STRATEGY.md

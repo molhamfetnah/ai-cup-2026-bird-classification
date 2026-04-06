@@ -25,7 +25,46 @@ Note: Cyclical encoding (sin/cos) allows the model to understand that hour 23 is
 
 ## Advanced Features (run_pipeline.py)
 
-Total features extracted: **40+**
+Total features extracted: **50+**
+
+### Kinematic Features (17 NEW - Physics-Based)
+
+Extracted from trajectory motion analysis. These features leverage **first principles of kinematics** to characterize flight behavior.
+
+#### Velocity Features
+- `velocity_mean` - Average 3D velocity magnitude: $\bar{v} = \frac{1}{n}\sum_{i=1}^{n}\|\vec{r}_{i+1} - \vec{r}_i\|$
+- `velocity_max` - Maximum instantaneous velocity
+- `velocity_std` - Velocity variation (indicates speed changes)
+- `horizontal_velocity_mean` - Average velocity in X-Y plane (ground speed)
+- `vertical_velocity_mean` - Average Z-axis velocity (climb/descent)
+
+#### Acceleration Features  
+Acceleration is the rate of change of velocity: $\vec{a} = \frac{d\vec{v}}{dt}$
+
+- `acceleration_mean` - Average acceleration magnitude
+- `acceleration_max` - Maximum acceleration (rapid maneuvers)
+- `acceleration_std` - Acceleration variation
+- `acceleration_variance` - **Flight pattern discriminator**:
+  - High variance → Flapping flight (e.g., Songbirds)
+  - Low variance → Gliding flight (e.g., Birds of Prey)
+
+#### Flight Pattern Classification
+- `is_flapping` - Binary indicator for flapping flight (high acceleration variance)
+- `is_gliding` - Binary indicator for gliding flight (low acceleration variance)
+
+#### Climb Dynamics
+- `climb_rate_mean` - Average upward velocity (when ascending)
+- `climb_rate_max` - Maximum climb rate
+- `descent_rate_max` - Maximum descent rate (absolute value)
+
+#### Path Geometry
+- `turn_radius_mean` - Average turn radius from three-point circumcircles
+- `path_curvature` - Inverse of turn radius: $\kappa = \frac{1}{r}$ (sharper turns = higher curvature)
+- `tortuosity` - Path complexity: $\tau = \frac{\text{total path length}}{\text{straight-line distance}}$
+  - τ ≈ 1: Straight flight
+  - τ > 2: Highly tortuous path
+
+**Why these matter:** Different bird species have distinct kinematic signatures based on their anatomy and behavior. Birds of Prey glide efficiently with low acceleration variance, while Songbirds use rapid wing flapping with high acceleration variance.
 
 ### Spatial Trajectory Features (20+)
 Extracted from WKB-encoded LineString coordinates:

@@ -28,19 +28,25 @@ def main():
     print(f"Train shape: {train_df.shape}")
     print(f"Test shape: {test_df.shape}")
     
+    # Create one-hot encoded target columns from bird_group
+    print("\n2. Creating target labels...")
+    for target in TARGET_COLS:
+        train_df[target] = (train_df['bird_group'] == target).astype(int)
+    print(f"Target columns created: {TARGET_COLS}")
+    
     # Extract features
-    print("\n2. Extracting features from training data...")
+    print("\n3. Extracting features from training data...")
     train_features = extract_all_features(train_df)
     train_features.to_csv('outputs/train_features.csv', index=False)
     print(f"Train features saved: {train_features.shape}")
     
-    print("\n3. Extracting features from test data...")
+    print("\n4. Extracting features from test data...")
     test_features = extract_all_features(test_df)
     test_features.to_csv('outputs/test_features.csv', index=False)
     print(f"Test features saved: {test_features.shape}")
     
     # Train models
-    print("\n4. Training ensemble models...")
+    print("\n5. Training ensemble models...")
     models, feature_cols, oof_preds = train_ensemble_cv(train_features, train_df, n_folds=5)
     
     # Save models
@@ -54,7 +60,7 @@ def main():
     print("\nOOF predictions saved to outputs/oof_predictions.csv")
     
     # Generate test predictions
-    print("\n5. Generating test predictions...")
+    print("\n6. Generating test predictions...")
     test_preds = predict_test(models, test_features, feature_cols)
     
     # Create submission

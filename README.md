@@ -1,19 +1,45 @@
-# AI Cup 2026 Bird Classification
+# 🦅 AI Cup 2026 Bird Classification
 
-Competition-ready solution for bird species classification from radar track data.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![OOF Log Loss](https://img.shields.io/badge/OOF%20Log%20Loss-0.1495-green.svg)](outputs/)
+
+**Physics-informed machine learning for wind turbine bird strike prevention**
+
+Industrial AI system combining radar trajectory analysis with gradient boosting ensembles for real-time bird species classification. Features kinematic feature extraction and turbine safety controller logic.
+
+## 🎯 System Architecture
+
+```mermaid
+graph LR
+    A[Radar Sensor] --> B[WKB Parser]
+    B --> C[Feature Engine]
+    C --> D[Kinematic Features]
+    C --> E[Radar Features]
+    C --> F[Temporal Features]
+    D --> G[ML Ensemble]
+    E --> G
+    F --> G
+    G --> H[Bird Classifier]
+    H --> I[Safety Controller]
+    I --> J{Threat Level}
+    J -->|Critical| K[Turbine Shutdown]
+    J -->|Elevated| L[Reduce Speed]
+    J -->|Low| M[Normal Operation]
+```
 
 ## 📊 Problem Description
 
 Multi-class classification of bird radar tracks into 9 categories:
-- Clutter
-- Cormorants
-- Pigeons
-- Ducks
-- Geese
-- Gulls
-- Birds of Prey
-- Waders
-- Songbirds
+- **Clutter** - Non-bird radar returns
+- **Cormorants** - Large water birds
+- **Pigeons** - Urban/common birds
+- **Ducks** - Waterfowl
+- **Geese** - Large migratory birds
+- **Gulls** - Coastal/seabirds (58% of dataset)
+- **Birds of Prey** - Hawks, eagles (high-altitude gliders)
+- **Waders** - Shore birds
+- **Songbirds** - Small passerines (19% of dataset)
 
 ## 🚀 Quick Start
 
@@ -48,6 +74,15 @@ python run_pipeline.py
 
 **Output:** `outputs/submission.csv`
 
+### Test Safety Controller
+
+```bash
+# Demo industrial safety logic
+python src/safety_controller.py
+```
+
+**Output:** Threat assessment reports for various bird detection scenarios
+
 ## 📁 Project Structure
 
 ```
@@ -57,10 +92,12 @@ python run_pipeline.py
 │   ├── test.csv               # Test data (1,872 tracks)
 │   └── sample_submission.csv  # Submission format
 ├── src/                       # Source code modules
-│   ├── features.py           # Feature engineering (trajectory parsing, temporal, radar)
-│   └── train.py              # Ensemble training (XGBoost, LightGBM, CatBoost)
+│   ├── features.py           # Feature engineering (kinematic, trajectory, radar)
+│   ├── train.py              # Ensemble training (XGBoost, LightGBM, CatBoost)
+│   └── safety_controller.py  # Industrial turbine safety logic
+├── notebooks/                 # Analysis notebooks
+│   └── 01_trajectory_visualization.ipynb
 ├── outputs/                   # Model outputs and submissions
-│   └── baseline_submission.csv
 ├── models/                    # Saved model checkpoints
 ├── run_baseline.py           # Quick baseline model script
 ├── run_pipeline.py           # Full ensemble pipeline
@@ -70,32 +107,47 @@ python run_pipeline.py
 
 ## 🔧 Features
 
-### Baseline Model Features
+### Baseline Model (14 features)
 - **Radar signatures**: bird size, airspeed, altitude (min/max/range)
 - **Temporal**: duration, hour of day, day of week, month, cyclical encoding
 - **Trajectory**: approximate length from WKB hex string
 - **Observer**: number of birds observed
 
-### Advanced Features (run_pipeline.py)
+### Advanced Model (50+ features)
 - **Trajectory parsing**: WKB geometry decoding for spatial coordinates
-- **Spatial statistics**: mean, std, min, max for x, y, z coordinates
-- **Movement patterns**: total distance, straightness, step distances
-- **Directional features**: angle changes, turning behavior
-- **Enhanced temporal**: time period categorization (morning/afternoon/evening/night)
+- **Kinematic features** (17 new):
+  - **Velocity**: 3D velocity, horizontal/vertical components
+  - **Acceleration**: Mean, max, variance (flight pattern indicator)
+  - **Flight patterns**: Flapping vs gliding detection
+  - **Climb dynamics**: Climb rate, descent rate
+  - **Path geometry**: Turn radius, curvature, tortuosity
+- **Spatial statistics**: Distance, straightness, angular changes
+- **Temporal patterns**: Cyclical time encoding
 
-## 🎯 Models
+### Safety Controller Module
+Industrial logic layer for wind turbine bird strike prevention:
+- **Threat evaluation**: Real-time risk assessment by species and proximity
+- **Species risk profiles**: High/medium/low impact classification
+- **Control actions**: Turbine shutdown, speed reduction, or normal operation
+- **Batch processing**: Multi-detection threat prioritization
+
+## 🎯 Models & Performance
 
 ### Baseline
 - **Algorithm**: XGBoost
+- **Features**: 14 basic features
 - **Training**: 3-fold cross-validation
 - **Speed**: ~2 minutes
-- **Score**: 0.1495 OOF Log Loss
+- **Score**: **0.1495 OOF Log Loss**
+- **Per-class**: Best - Clutter (0.04), Ducks (0.06) | Hardest - Gulls (0.43), Songbirds (0.30)
 
 ### Advanced Ensemble
 - **Algorithms**: XGBoost + LightGBM + CatBoost
+- **Features**: 50+ physics-based features (17 new kinematic features)
 - **Training**: 5-fold cross-validation per model
 - **Ensemble**: Average predictions across all models and folds
 - **Speed**: ~15-30 minutes
+- **Expected improvement**: 10-15% from kinematic features
 - **Expected improvement**: Lower log loss through ensemble diversity
 
 ## 📈 Results
