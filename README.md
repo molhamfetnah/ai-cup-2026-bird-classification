@@ -3,10 +3,11 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![OOF Log Loss](https://img.shields.io/badge/OOF%20Log%20Loss-0.1495-green.svg)](outputs/)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
 
 **Physics-informed machine learning for wind turbine bird strike prevention**
 
-Industrial AI system combining radar trajectory analysis with gradient boosting ensembles for real-time bird species classification. Features kinematic feature extraction and turbine safety controller logic.
+Industrial AI system combining radar trajectory analysis with gradient boosting ensembles for real-time bird species classification. Features 59+ kinematic features, gliding ratio analysis, and turbine safety controller logic.
 
 ## 🎯 System Architecture
 
@@ -113,14 +114,17 @@ python src/safety_controller.py
 - **Trajectory**: approximate length from WKB hex string
 - **Observer**: number of birds observed
 
-### Advanced Model (50+ features)
+### Advanced Model (59+ features)
 - **Trajectory parsing**: WKB geometry decoding for spatial coordinates
-- **Kinematic features** (17 new):
-  - **Velocity**: 3D velocity, horizontal/vertical components
+- **Kinematic features** (22 physics-based):
+  - **Velocity**: 3D velocity, horizontal/vertical components, variance, coefficient of variation
   - **Acceleration**: Mean, max, variance (flight pattern indicator)
   - **Flight patterns**: Flapping vs gliding detection
   - **Climb dynamics**: Climb rate, descent rate
+  - **Gliding ratio**: L/D ratio (horizontal distance / vertical drop) - distinguishes Birds of Prey
+  - **Altitude efficiency**: Distance traveled per meter of altitude change
   - **Path geometry**: Turn radius, curvature, tortuosity
+- **RCS proxy features**: Time interval variance, sampling frequency, track density
 - **Spatial statistics**: Distance, straightness, angular changes
 - **Temporal patterns**: Cyclical time encoding
 
@@ -143,11 +147,30 @@ Industrial logic layer for wind turbine bird strike prevention:
 
 ### Advanced Ensemble
 - **Algorithms**: XGBoost + LightGBM + CatBoost
-- **Features**: 50+ physics-based features (17 new kinematic features)
+- **Features**: 59+ physics-based features (22 kinematic + RCS proxies)
 - **Training**: 5-fold cross-validation per model
 - **Ensemble**: Average predictions across all models and folds
 - **Speed**: ~15-30 minutes
-- **Expected improvement**: 10-15% from kinematic features
+- **Key differentiators**: Gliding ratio, velocity variance, RCS proxies
+
+## 🐳 Docker Deployment
+
+Production-ready containerization with multi-stage builds:
+
+```bash
+# Build and run baseline
+docker build --target production -t bird-classifier:latest .
+docker run -v $(pwd)/data:/app/data bird-classifier:latest
+
+# Development with Jupyter
+docker-compose up jupyter
+# Access at http://localhost:8888
+
+# Full training pipeline
+docker-compose up trainer
+```
+
+See [DOCKER.md](DOCKER.md) for complete deployment guide.
 - **Expected improvement**: Lower log loss through ensemble diversity
 
 ## 📈 Results

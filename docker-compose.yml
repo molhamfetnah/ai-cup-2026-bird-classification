@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Production inference service
+  bird-classifier:
+    build:
+      context: .
+      target: production
+    image: bird-classifier:latest
+    container_name: bird-classifier-prod
+    volumes:
+      - ./data:/app/data:ro
+      - ./outputs:/app/outputs
+      - ./models:/app/models
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  # Development environment with Jupyter
+  jupyter:
+    build:
+      context: .
+      target: development
+    image: bird-classifier:dev
+    container_name: bird-classifier-dev
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+      - ./models:/app/models
+      - ./notebooks:/app/notebooks
+      - ./src:/app/src
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''
+
+  # Training service
+  trainer:
+    build:
+      context: .
+      target: training
+    image: bird-classifier:training
+    container_name: bird-classifier-training
+    volumes:
+      - ./data:/app/data:ro
+      - ./outputs:/app/outputs
+      - ./models:/app/models
+    environment:
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G

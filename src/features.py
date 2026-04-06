@@ -99,11 +99,13 @@ def extract_kinematic_features(coords_array):
         # Not enough points for kinematic analysis
         return {
             'velocity_mean': 0, 'velocity_max': 0, 'velocity_std': 0,
+            'velocity_variance': 0, 'velocity_coefficient_variation': 0,
             'horizontal_velocity_mean': 0, 'vertical_velocity_mean': 0,
             'acceleration_mean': 0, 'acceleration_max': 0, 'acceleration_std': 0,
             'acceleration_variance': 0, 'is_flapping': 0, 'is_gliding': 0,
             'climb_rate_mean': 0, 'climb_rate_max': 0, 'descent_rate_max': 0,
-            'turn_radius_mean': 0, 'path_curvature': 0, 'tortuosity': 0
+            'turn_radius_mean': 0, 'path_curvature': 0, 'tortuosity': 0,
+            'gliding_ratio': 0, 'net_altitude_change': 0, 'altitude_efficiency': 0
         }
     
     # Calculate 3D velocities (assuming uniform time steps)
@@ -114,6 +116,11 @@ def extract_kinematic_features(coords_array):
     features['velocity_mean'] = np.mean(velocities_3d)
     features['velocity_max'] = np.max(velocities_3d)
     features['velocity_std'] = np.std(velocities_3d)
+    
+    # Velocity variance (proxy for RCS fluctuation / flapping frequency)
+    # High variance indicates erratic movement (flapping), low variance indicates steady flight (gliding)
+    features['velocity_variance'] = np.var(velocities_3d)
+    features['velocity_coefficient_variation'] = features['velocity_std'] / (features['velocity_mean'] + 1e-6)
     
     # Horizontal velocity (X-Y plane)
     if coords_array.shape[1] >= 2:
@@ -196,6 +203,36 @@ def extract_kinematic_features(coords_array):
     straight_dist = np.linalg.norm(coords_array[-1, :2] - coords_array[0, :2])
     features['tortuosity'] = total_path / (straight_dist + 1e-6)
     
+    # Gliding Ratio (L/D) - horizontal distance to vertical drop
+    # Critical for distinguishing Birds of Prey (high gliders) from other species
+    if coords_array.shape[1] > 2:
+        # Calculate total horizontal distance
+        horizontal_distance = total_path  # Already calculated above
+        
+        # Calculate vertical drop (absolute change in altitude)
+        vertical_drop = np.abs(coords_array[-1, 2] - coords_array[0, 2])
+        
+        # Gliding ratio
+        if vertical_drop > 1e-3:  # Avoid division by near-zero
+            features['gliding_ratio'] = horizontal_distance / vertical_drop
+        else:
+            # If negligible vertical movement, assign high value (horizontal flight)
+            features['gliding_ratio'] = 100.0
+        
+        # Additional gliding metrics
+        # Net altitude change (signed)
+        features['net_altitude_change'] = coords_array[-1, 2] - coords_array[0, 2]
+        
+        # Altitude efficiency (horizontal distance per meter of altitude change)
+        if np.abs(features['net_altitude_change']) > 1e-3:
+            features['altitude_efficiency'] = horizontal_distance / np.abs(features['net_altitude_change'])
+        else:
+            features['altitude_efficiency'] = 100.0
+    else:
+        features['gliding_ratio'] = 0
+        features['net_altitude_change'] = 0
+        features['altitude_efficiency'] = 0
+    
     return features
 
 
@@ -249,6 +286,7 @@ def extract_temporal_features(row):
 
 def extract_radar_features(row):
     """Extract features from radar measurements."""
+    # Basic radar features
     features = {
         'radar_bird_size': row.get('radar_bird_size', 0),
         'airspeed': row.get('airspeed', 0),
@@ -266,6 +304,44 @@ def extract_radar_features(row):
         features['speed_category'] = 1  # medium
     else:
         features['speed_category'] = 2  # fast
+    
+    # RCS Variance Proxy Features
+    # Since radar_bird_size is categorical, use trajectory complexity as proxy
+    # Extract trajectory time series for variance analysis
+    try:
+        trajectory_time = row.get('trajectory_time', '[]')
+        if isinstance(trajectory_time, str):
+            import ast
+            time_points = ast.literal_eval(trajectory_time)
+            if len(time_points) > 1:
+                time_array = np.array(time_points)
+                
+                # Time interval variance (proxy for movement irregularity)
+                time_diffs = np.diff(time_array)
+                features['time_interval_variance'] = np.var(time_diffs)
+                features['time_interval_cv'] = np.std(time_diffs) / (np.mean(time_diffs) + 1e-6)
+                
+                # Sampling frequency (points per second)
+                total_duration = time_array[-1] - time_array[0]
+                features['sampling_frequency'] = len(time_array) / (total_duration + 1e-6)
+                
+                # Track complexity (number of samples normalized by duration)
+                features['track_sample_density'] = len(time_array) / (total_duration + 1)
+            else:
+                features['time_interval_variance'] = 0
+                features['time_interval_cv'] = 0
+                features['sampling_frequency'] = 0
+                features['track_sample_density'] = 0
+        else:
+            features['time_interval_variance'] = 0
+            features['time_interval_cv'] = 0
+            features['sampling_frequency'] = 0
+            features['track_sample_density'] = 0
+    except:
+        features['time_interval_variance'] = 0
+        features['time_interval_cv'] = 0
+        features['sampling_frequency'] = 0
+        features['track_sample_density'] = 0
     
     return features
 

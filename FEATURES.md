@@ -25,9 +25,9 @@ Note: Cyclical encoding (sin/cos) allows the model to understand that hour 23 is
 
 ## Advanced Features (run_pipeline.py)
 
-Total features extracted: **50+**
+Total features extracted: **59+**
 
-### Kinematic Features (17 NEW - Physics-Based)
+### Kinematic Features (22 - Physics-Based) ⭐ DOMAIN EXPERTISE
 
 Extracted from trajectory motion analysis. These features leverage **first principles of kinematics** to characterize flight behavior.
 
@@ -35,8 +35,24 @@ Extracted from trajectory motion analysis. These features leverage **first princ
 - `velocity_mean` - Average 3D velocity magnitude: $\bar{v} = \frac{1}{n}\sum_{i=1}^{n}\|\vec{r}_{i+1} - \vec{r}_i\|$
 - `velocity_max` - Maximum instantaneous velocity
 - `velocity_std` - Velocity variation (indicates speed changes)
+- `velocity_variance` - **RCS fluctuation proxy** (flapping indicator)
+- `velocity_coefficient_variation` - Normalized velocity variance: $CV = \frac{\sigma_v}{\bar{v}}$
+  - High CV → Erratic flight (Songbirds)
+  - Low CV → Steady flight (Geese, Birds of Prey)
 - `horizontal_velocity_mean` - Average velocity in X-Y plane (ground speed)
 - `vertical_velocity_mean` - Average Z-axis velocity (climb/descent)
+
+#### Gliding Ratio (L/D) - Critical Discriminator 🎯
+**Formula:** $G = \frac{\Delta x_{horizontal}}{\Delta z_{vertical}}$
+
+- `gliding_ratio` - Horizontal distance traveled per unit vertical drop
+  - **Birds of Prey**: G = 10-20 (efficient gliders)
+  - **Songbirds**: G = 2-5 (rapid wing beats)
+  - **Clutter**: G ≈ 0 or undefined (no aerodynamic lift)
+- `net_altitude_change` - Signed altitude change over track (climbing vs descending)
+- `altitude_efficiency` - Distance per meter of altitude change
+
+**Why This Matters:** Gliding ratio is a fundamental aerodynamic property. Raptors (Birds of Prey) have evolved high-aspect-ratio wings for efficient soaring, while smaller birds use powered flight. This single feature encodes millions of years of evolutionary optimization.
 
 #### Acceleration Features  
 Acceleration is the rate of change of velocity: $\vec{a} = \frac{d\vec{v}}{dt}$
@@ -63,6 +79,17 @@ Acceleration is the rate of change of velocity: $\vec{a} = \frac{d\vec{v}}{dt}$
 - `tortuosity` - Path complexity: $\tau = \frac{\text{total path length}}{\text{straight-line distance}}$
   - τ ≈ 1: Straight flight
   - τ > 2: Highly tortuous path
+
+### RCS Variance Proxy Features (4) - Flapping Frequency Indicators
+
+Since radar_bird_size is categorical (not continuous RCS), we use trajectory sampling patterns as proxies:
+
+- `time_interval_variance` - Variance in radar sampling intervals
+- `time_interval_cv` - Coefficient of variation of time intervals
+- `sampling_frequency` - Points per second (higher for complex movements)
+- `track_sample_density` - Normalized sample count (complexity indicator)
+
+**Rationale:** Flapping wings cause periodic changes in radar cross-section. While we lack direct RCS time-series, irregular sampling and high sample density correlate with erratic movement patterns characteristic of flapping flight.
 
 **Why these matter:** Different bird species have distinct kinematic signatures based on their anatomy and behavior. Birds of Prey glide efficiently with low acceleration variance, while Songbirds use rapid wing flapping with high acceleration variance.
 
